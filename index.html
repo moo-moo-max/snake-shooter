@@ -18,6 +18,9 @@ const ctx = canvas.getContext("2d");
 canvas.width = 800;
 canvas.height = 600;
 
+// GRID SIZE (NEW)
+const gridSize = 20;
+
 // Player
 let player = {
   x: canvas.width / 2 - 20,
@@ -37,18 +40,18 @@ let snakes = [];
 
 function createSnake() {
   let segments = [];
-  let startX = Math.random() * (canvas.width - 100);
-  let startY = Math.random() * (canvas.height / 2);
+  let startX = Math.floor(Math.random() * (canvas.width / gridSize)) * gridSize;
+  let startY = Math.floor(Math.random() * (canvas.height / 2 / gridSize)) * gridSize;
 
   for (let i = 0; i < 6; i++) {
-    segments.push({ x: startX - i * 15, y: startY });
+    segments.push({ x: startX - i * gridSize, y: startY });
   }
 
   return {
     segments: segments,
     dir: Math.random() < 0.5 ? -1 : 1,
-    speed: 2,
-    wiggle: Math.random() * 100
+    speed: gridSize,
+    moveTimer: 0
   };
 }
 
@@ -93,27 +96,35 @@ function update() {
     if (b.y < 0) bullets.splice(i, 1);
   });
 
-  // Snakes
+  // Snakes (UPDATED TO GRID MOVEMENT)
   snakes.forEach(snake => {
-    snake.wiggle += 0.1;
+    snake.moveTimer++;
 
-    let head = snake.segments[0];
+    // slow step movement (Snake-style)
+    if (snake.moveTimer < 6) return;
+    snake.moveTimer = 0;
+
+    let head = { ...snake.segments[0] };
+
     head.x += snake.speed * snake.dir;
-    head.y += Math.sin(snake.wiggle) * 1.5;
 
-    if (head.x <= 0 || head.x >= canvas.width - 10) {
+    // bounce off walls
+    if (head.x < 0 || head.x >= canvas.width) {
       snake.dir *= -1;
+      head.x += snake.speed * snake.dir;
     }
 
-    // Move body
-    for (let i = snake.segments.length - 1; i > 0; i--) {
-      snake.segments[i].x = snake.segments[i - 1].x;
-      snake.segments[i].y = snake.segments[i - 1].y;
-    }
+    snake.segments.unshift(head);
+    snake.segments.pop();
 
-    // Bullet collision (hit head)
+    // Bullet collision
     bullets.forEach((b, bi) => {
-      if (Math.hypot(b.x - head.x, b.y - head.y) < 15) {
+      if (
+        b.x > head.x &&
+        b.x < head.x + gridSize &&
+        b.y > head.y &&
+        b.y < head.y + gridSize
+      ) {
         bullets.splice(bi, 1);
         Object.assign(snake, createSnake());
         score++;
@@ -122,9 +133,9 @@ function update() {
 
     // Player collision
     if (
-      head.y + 10 > player.y &&
-      head.x > player.x &&
-      head.x < player.x + player.width
+      head.y + gridSize > player.y &&
+      head.x < player.x + player.width &&
+      head.x + gridSize > player.x
     ) {
       player.health--;
       Object.assign(snake, createSnake());
@@ -136,14 +147,15 @@ function update() {
   });
 }
 
-// Draw snake
+// Draw snake (UPDATED STYLE)
 function drawSnake(snake) {
-  ctx.fillStyle = "green";
-
   snake.segments.forEach((seg, i) => {
-    ctx.beginPath();
-    ctx.arc(seg.x, seg.y, i === 0 ? 8 : 6, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = i === 0 ? "#0a0" : "#2ecc71";
+    ctx.fillRect(seg.x, seg.y, gridSize, gridSize);
+
+    // retro outline
+    ctx.strokeStyle = "#0f0";
+    ctx.strokeRect(seg.x, seg.y, gridSize, gridSize);
   });
 }
 
